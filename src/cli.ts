@@ -73,13 +73,41 @@ async function main(): Promise<void> {
   }
 
   const target = parseTarget(args.target);
+  const startedAt = new Date().toISOString();
+  const start = performance.now();
   let client;
   try {
     client = await connect(target, args.timeoutMs);
   } catch (err: unknown) {
-    console.error(
-      `could not connect to ${target.label}: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    let message = err instanceof Error ? err.message : String(err);
+    // Node's fetch reports bare "fetch failed" with the real reason in the cause
+    // chain (ENOTFOUND, ECONNREFUSED, certificate errors). Surface it.
+    for (let cause = (err as { cause?: unknown }).cause; cause instanceof Error; cause = (cause as { cause?: unknown }).cause) {
+      const code = (cause as { code?: string }).code;
+      message += ` <- ${code ?? cause.message}`;
+    }
+    if (args.json) {
+      // Connect failures are data too: emit the same report shape with a single
+      // failed connect check, so pipelines never have to parse stderr.
+      const report = {
+        target: target.label,
+        startedAt,
+        durationMs: Math.round(performance.now() - start),
+        results: [
+          {
+            id: "connect",
+            title: "Server accepts a connection",
+            category: "protocol",
+            severity: "fail",
+            message,
+          },
+        ],
+        summary: { pass: 0, warn: 0, fail: 1, skip: 0 },
+      };
+      console.log(JSON.stringify(report, null, 2));
+    } else {
+      console.error(`could not connect to ${target.label}: ${message}`);
+    }
     process.exit(2);
   }
 
