@@ -28,6 +28,12 @@ export const unknownMethod: Check = {
             "warn",
             `unknown method rejected, but with code ${classified.code} instead of -32601`,
           );
+        case "http-error":
+          return result(
+            this,
+            "warn",
+            `unknown method rejected via HTTP ${classified.httpStatus} instead of a JSON-RPC -32601 error`,
+          );
         case "timeout":
           return result(this, "fail", "server hung on an unknown method (no response before timeout)");
         case "closed":
@@ -71,6 +77,12 @@ export const malformedParams: Check = {
             );
           }
           return result(this, "warn", `malformed params rejected with unexpected code ${classified.code}`);
+        case "http-error":
+          return result(
+            this,
+            "warn",
+            `malformed params rejected via HTTP ${classified.httpStatus} instead of a JSON-RPC -32602 error`,
+          );
         case "timeout":
           return result(this, "fail", "server hung on malformed params (no response before timeout)");
         case "closed":

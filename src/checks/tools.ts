@@ -251,7 +251,9 @@ export const invalidArgs: Check = {
         executed.push(tool.name);
       } catch (err: unknown) {
         const classified = classify(err);
-        if (classified.kind === "clean-error") continue;
+        // Both a JSON-RPC error and an HTTP-status rejection mean the tool refused
+        // the invalid call, which is the behavior we want.
+        if (classified.kind === "clean-error" || classified.kind === "http-error") continue;
         if (classified.kind === "timeout") hung.push(tool.name);
         else if (classified.kind === "closed") {
           crashed.push(tool.name);

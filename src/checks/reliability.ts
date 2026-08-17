@@ -42,11 +42,12 @@ export const stability: Check = {
   title: "Server still healthy after all probes",
   category: "reliability",
   async run(ctx: VetContext) {
+    // Use a real method the server supports as the health probe, not ping: many
+    // servers do not implement ping (that is the ping check's job to report), and
+    // health here means "still answers a request it just answered", not "supports ping".
     try {
-      await ctx.client.ping({ timeout: ctx.options.timeoutMs });
       if (ctx.shared.tools && ctx.shared.tools.length > 0) {
         const res = await rawListToolsPage(ctx.client, undefined, ctx.options.timeoutMs);
-        // Compare only the first page against what we saw earlier.
         if (Array.isArray(res.tools) && res.tools.length === 0) {
           return result(
             this,
@@ -54,6 +55,9 @@ export const stability: Check = {
             `server answers but lost its tools (${ctx.shared.tools.length} before, 0 now)`,
           );
         }
+      } else {
+        // No tools to re-list, so ping is the only universal liveness probe left.
+        await ctx.client.ping({ timeout: ctx.options.timeoutMs });
       }
       return result(this, "pass", "server survived every probe and still responds");
     } catch (err: unknown) {
