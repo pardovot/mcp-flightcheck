@@ -72,6 +72,33 @@ export function sloppyServer(): Server {
   return server;
 }
 
+/** A server whose tool schemas declare JSON Schema draft 2020-12, common in the wild. */
+export function modernSchemaServer(): Server {
+  const server = new Server(
+    { name: "modern-schema-fixture", version: "0.0.1" },
+    { capabilities: { tools: {} } },
+  );
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: [
+      {
+        name: "lookup",
+        description: "Look something up",
+        inputSchema: {
+          $schema: "https://json-schema.org/draft/2020-12/schema",
+          type: "object",
+          properties: { query: { type: "string" } },
+          required: ["query"],
+        },
+      },
+    ],
+  }));
+  server.setRequestHandler(CallToolRequestSchema, async () => ({
+    isError: true,
+    content: [{ type: "text", text: "rejected" }],
+  }));
+  return server;
+}
+
 /** A server whose tool call never resolves. */
 export function hangingServer(): Server {
   const server = new Server(

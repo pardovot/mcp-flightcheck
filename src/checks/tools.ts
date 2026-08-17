@@ -1,4 +1,6 @@
 import { Ajv } from "ajv";
+import { Ajv2019 } from "ajv/dist/2019.js";
+import { Ajv2020 } from "ajv/dist/2020.js";
 import type { Check, VetContext } from "../types.js";
 import { result } from "../types.js";
 import { classify } from "../errors.js";
@@ -84,10 +86,16 @@ export const toolSchemas: Check = {
     if (!tools) return result(this, "skip", "no tool list available");
     if (tools.length === 0) return result(this, "skip", "server has no tools");
 
-    const ajv = new Ajv({ strict: false });
+    // Servers ship schemas against different drafts, keyed by $schema.
+    const validators = {
+      default: new Ajv({ strict: false }),
+      "2019-09": new Ajv2019({ strict: false }),
+      "2020-12": new Ajv2020({ strict: false }),
+    };
     const missing: string[] = [];
     const invalid: string[] = [];
     const nonObject: string[] = [];
+    const unverifiable: string[] = [];
     for (const tool of tools) {
       const schema = tool.inputSchema;
       if (schema === undefined || schema === null) {
@@ -98,8 +106,25 @@ export const toolSchemas: Check = {
         nonObject.push(tool.name);
         continue;
       }
-      if (!ajv.validateSchema(schema)) {
-        invalid.push(`${tool.name}: ${ajv.errorsText(ajv.errors)}`);
+      const declared = (schema as { $schema?: unknown }).$schema;
+      const draft = typeof declared === "string" ? declared : "";
+      const ajv = draft.includes("2020-12")
+        ? validators["2020-12"]
+        : draft.includes("2019-09")
+          ? validators["2019-09"]
+          : validators.default;
+      try {
+        if (!ajv.validateSchema(schema)) {
+          invalid.push(`${tool.name}: ${ajv.errorsText(ajv.errors)}`);
+        }
+      } catch (err: unknown) {
+        const reason = err instanceof Error ? err.message : String(err);
+        // An unrecognized $schema URI is unverifiable, not proven broken.
+        if (/no schema with key or ref/.test(reason)) {
+          unverifiable.push(`${tool.name}: unrecognized $schema "${draft}"`);
+        } else {
+          invalid.push(`${tool.name}: ${reason}`);
+        }
       }
     }
 
@@ -107,6 +132,7 @@ export const toolSchemas: Check = {
       ...missing.map((name) => `${name}: no inputSchema at all (official SDK clients reject the entire tool list over this)`),
       ...nonObject.map((name) => `${name}: inputSchema root is not type "object"`),
       ...invalid.map((line) => `${line} (schema does not compile)`),
+      ...unverifiable,
     ];
     if (missing.length + invalid.length > 0) {
       return result(
@@ -116,11 +142,11 @@ export const toolSchemas: Check = {
         details,
       );
     }
-    if (nonObject.length > 0) {
+    if (nonObject.length + unverifiable.length > 0) {
       return result(
         this,
         "warn",
-        `${nonObject.length} of ${tools.length} tools have a non-object schema root`,
+        `${nonObject.length + unverifiable.length} of ${tools.length} tools have non-object or unverifiable schemas`,
         details,
       );
     }

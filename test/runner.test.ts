@@ -3,7 +3,14 @@ import assert from "node:assert/strict";
 import { runChecks } from "../src/runner.js";
 import { exitCode } from "../src/report.js";
 import type { VetReport, CheckResult } from "../src/types.js";
-import { connectFixture, goodServer, sloppyServer, hangingServer, crashingServer } from "./fixtures.js";
+import {
+  connectFixture,
+  goodServer,
+  sloppyServer,
+  hangingServer,
+  crashingServer,
+  modernSchemaServer,
+} from "./fixtures.js";
 
 const FAST = { timeoutMs: 500, probe: true, probeLimit: 10 };
 
@@ -71,6 +78,15 @@ test("crashing server: crash detected and stability fails", async () => {
   assert.match(probe.message, /crashed/);
   assert.equal(byId(report, "stability").severity, "fail");
   assert.equal(exitCode(report, false), 1);
+});
+
+test("draft 2020-12 schemas validate instead of crashing the check", async () => {
+  const client = await connectFixture(modernSchemaServer());
+  const report = await runChecks(client, "in-memory", FAST);
+  await client.close();
+
+  const schemas = byId(report, "tool-schemas");
+  assert.equal(schemas.severity, "pass", JSON.stringify(schemas));
 });
 
 test("strict mode turns warnings into a failing exit code", () => {

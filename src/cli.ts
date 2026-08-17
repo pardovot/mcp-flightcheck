@@ -80,6 +80,11 @@ async function main(): Promise<void> {
     client = await connect(target, args.timeoutMs);
   } catch (err: unknown) {
     let message = err instanceof Error ? err.message : String(err);
+    // StreamableHTTPError carries the HTTP status in .code, which the message omits.
+    const status = (err as { code?: unknown }).code;
+    if (typeof status === "number" && status >= 100 && status <= 599) {
+      message = `HTTP ${status}: ${message}`;
+    }
     // Node's fetch reports bare "fetch failed" with the real reason in the cause
     // chain (ENOTFOUND, ECONNREFUSED, certificate errors). Surface it.
     for (let cause = (err as { cause?: unknown }).cause; cause instanceof Error; cause = (cause as { cause?: unknown }).cause) {
