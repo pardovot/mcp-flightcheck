@@ -1,10 +1,8 @@
 # mcp-flightcheck
 
-**CI-grade conformance and reliability testing for MCP servers.**
+Reliability checks for MCP servers, made to run in CI. It does the normal client startup against your server, then sends the things a client normally wouldn't, a call with no tool name, an unknown method, a tool call with required arguments missing. You get a scorecard, and a non-zero exit code when something's off.
 
-Of the MCP servers in the official registry you can actually connect to, [about a third fail a conformance or reliability check and one in seven is outright broken](../mcp-reliability-study/) (crashes, hangs, or runs a `tools/call` that names no tool). Error paths crash the process, unknown methods hang, capabilities are declared but unserved, and nothing in the ecosystem gates any of it before it ships. The official Inspector is interactive by design: no assertions, no exit codes, no CI.
-
-`mcp-flightcheck` is the missing gate. Point it at your server and it runs a battery of conformance, quality, and reliability checks, prints a scorecard, and exits non-zero when your server is not ready.
+I ran it against every remote server in the official registry, 6,892 of them. Of the ones that even accept a connection, a quarter fail a check and [one in seven is just broken](../mcp-reliability-study/), they crash, hang, or run a `tools/call` that names no tool. The official Inspector is interactive, nothing fails a build, so none of this gets caught before it ships.
 
 ```
 $ npx mcp-flightcheck node dist/server.js
