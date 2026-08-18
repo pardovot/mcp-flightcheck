@@ -2,7 +2,7 @@
 
 **CI-grade conformance and reliability testing for MCP servers.**
 
-A third of public MCP servers fail a routine tool call. Schemas are missing, error paths crash the process, unknown methods hang forever, and nothing in the ecosystem gates any of that before it ships. The official Inspector is interactive by design: no assertions, no exit codes, no CI.
+Of the MCP servers in the official registry you can actually connect to, [about a third fail a conformance or reliability check and one in seven is outright broken](../mcp-reliability-study/) (crashes, hangs, or runs a `tools/call` that names no tool). Error paths crash the process, unknown methods hang, capabilities are declared but unserved, and nothing in the ecosystem gates any of it before it ships. The official Inspector is interactive by design: no assertions, no exit codes, no CI.
 
 `mcp-flightcheck` is the missing gate. Point it at your server and it runs a battery of conformance, quality, and reliability checks, prints a scorecard, and exits non-zero when your server is not ready.
 
@@ -57,6 +57,17 @@ mcp-flightcheck --strict node dist/server.js  # warnings also fail the run
 mcp-flightcheck --no-probe node server.js     # skip invalid-argument probing
 mcp-flightcheck --timeout 30000 slow-server   # per-request timeout in ms
 ```
+
+### Auth (test your own gated server in CI)
+
+Most production remote servers require a token, which is exactly what you want to gate in CI. Pass one with `--bearer`, or set arbitrary headers with `--header` (repeatable):
+
+```bash
+mcp-flightcheck --strict --bearer "$MCP_TOKEN" https://your-server/mcp
+mcp-flightcheck --header "X-Api-Key: $API_KEY" --header "X-Tenant: acme" https://your-server/mcp
+```
+
+Keep tokens in CI secrets and pass them by env var, as above. mcp-flightcheck never prints header values, and the JSON report identifies the target by URL only. Auth flags apply to remote (http) targets; a stdio server takes credentials through its own env and args.
 
 Exit codes: `0` clean, `1` findings, `2` could not connect or usage error. Drop it straight into CI:
 

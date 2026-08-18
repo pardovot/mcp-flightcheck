@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { parseTarget, connect } from "./connect.js";
+import { fileURLToPath } from "node:url";
+import { parseTarget, parseHeaders, connect } from "./connect.js";
 import { runChecks, DEFAULT_OPTIONS } from "./runner.js";
 import { renderText, renderJson, exitCode } from "./report.js";
 
@@ -10,11 +11,17 @@ Usage:
   mcp-flightcheck <url>                   test a Streamable HTTP server, e.g. mcp-flightcheck https://host/mcp
 
 Options:
-  --json            machine-readable report on stdout
-  --strict          exit 1 on warnings too, not just failures
-  --no-probe        skip invalid-argument probing of tools
-  --timeout <ms>    per-request timeout (default 10000)
-  --help            this text
+  --json                 machine-readable report on stdout
+  --strict               exit 1 on warnings too, not just failures
+  --no-probe             skip invalid-argument probing of tools
+  --timeout <ms>         per-request timeout (default 10000)
+  --header "Name: Val"   extra HTTP header for a remote server (repeatable)
+  --bearer <token>       shorthand for --header "Authorization: Bearer <token>"
+  --help                 this text
+
+Auth in CI (test your own gated server):
+  mcp-flightcheck --strict --bearer "$MCP_TOKEN" https://your-server/mcp
+  mcp-flightcheck --header "X-Api-Key: $KEY" https://your-server/mcp
 
 Exit codes: 0 clean, 1 findings, 2 could not connect or usage error.`;
 
@@ -23,6 +30,8 @@ interface CliArgs {
   strict: boolean;
   probe: boolean;
   timeoutMs: number;
+  headers: string[];
+  bearer?: string;
   target: string[];
 }
 
@@ -32,6 +41,7 @@ export function parseArgs(argv: string[]): CliArgs {
     strict: false,
     probe: DEFAULT_OPTIONS.probe,
     timeoutMs: DEFAULT_OPTIONS.timeoutMs,
+    headers: [],
     target: [],
   };
   let i = 0;
@@ -44,6 +54,14 @@ export function parseArgs(argv: string[]): CliArgs {
       const value = Number(argv[++i]);
       if (!Number.isFinite(value) || value <= 0) throw new Error("--timeout needs a positive number of ms");
       args.timeoutMs = value;
+    } else if (arg === "--header") {
+      const value = argv[++i];
+      if (value === undefined) throw new Error('--header needs a value, e.g. --header "Authorization: Bearer abc"');
+      args.headers.push(value);
+    } else if (arg === "--bearer") {
+      const value = argv[++i];
+      if (value === undefined) throw new Error("--bearer needs a token");
+      args.bearer = value;
     } else if (arg === "--help" || arg === "-h") {
       console.log(HELP);
       process.exit(0);
@@ -72,7 +90,19 @@ async function main(): Promise<void> {
     process.exit(2);
   }
 
-  const target = parseTarget(args.target);
+  let headers: Record<string, string>;
+  try {
+    headers = parseHeaders(args.headers, args.bearer);
+  } catch (err: unknown) {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(2);
+  }
+  const isRemote = args.target.length === 1 && /^https?:\/\//.test(args.target[0]);
+  if (!isRemote && Object.keys(headers).length > 0) {
+    console.error("--header/--bearer only apply to a remote (http) target; a stdio server takes auth via its own env/args");
+    process.exit(2);
+  }
+  const target = parseTarget(args.target, { headers });
   const startedAt = new Date().toISOString();
   const start = performance.now();
   let client;
@@ -131,7 +161,10 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err: unknown) => {
-  console.error(err instanceof Error ? (err.stack ?? err.message) : String(err));
-  process.exit(2);
-});
+// Run only when executed as the CLI, not when imported (e.g. by tests for parseArgs).
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main().catch((err: unknown) => {
+    console.error(err instanceof Error ? (err.stack ?? err.message) : String(err));
+    process.exit(2);
+  });
+}
