@@ -3,11 +3,18 @@ import type { Check, VetContext } from "../types.js";
 import { result } from "../types.js";
 import { classify, ErrorCode } from "../errors.js";
 
+const SPEC = "https://modelcontextprotocol.io/specification/2025-11-25";
+
 /** The server must reject a method that does not exist with -32601, not hang, crash, or "succeed". */
 export const unknownMethod: Check = {
   id: "unknown-method",
   title: "Rejects unknown methods",
   category: "protocol",
+  spec: {
+    level: "MUST",
+    text: "-32601 Method not found: The method does not exist / is not available. (JSON-RPC 2.0, which MCP messages MUST follow)",
+    url: "https://www.jsonrpc.org/specification#error_object",
+  },
   async run(ctx: VetContext) {
     try {
       await ctx.client.request(
@@ -50,6 +57,11 @@ export const malformedParams: Check = {
   id: "malformed-params",
   title: "Rejects malformed request params",
   category: "protocol",
+  spec: {
+    level: "MUST",
+    text: "-32602 Invalid params: Invalid method parameter(s). (JSON-RPC 2.0, which MCP messages MUST follow)",
+    url: "https://www.jsonrpc.org/specification#error_object",
+  },
   async run(ctx: VetContext) {
     try {
       await ctx.client.request(
@@ -104,6 +116,11 @@ export const ping: Check = {
   id: "ping",
   title: "Responds to ping",
   category: "protocol",
+  spec: {
+    level: "MUST",
+    text: "The receiver MUST respond promptly with an empty response.",
+    url: SPEC + "/basic/utilities/ping",
+  },
   async run(ctx: VetContext) {
     try {
       await ctx.client.ping({ timeout: ctx.options.timeoutMs });

@@ -6,6 +6,8 @@ import { result } from "../types.js";
 import { classify } from "../errors.js";
 import { rawListToolsPage } from "../raw.js";
 
+const SPEC = "https://modelcontextprotocol.io/specification/2025-11-25";
+
 // Tool names per spec guidance: short, safe identifier characters.
 const TOOL_NAME_PATTERN = /^[a-zA-Z0-9_./-]{1,128}$/;
 
@@ -16,6 +18,11 @@ export const toolsList: Check = {
   id: "tools-list",
   title: "tools/list works",
   category: "tools",
+  spec: {
+    level: "MUST",
+    text: "Servers that support tools MUST declare the tools capability.",
+    url: SPEC + "/server/tools#capabilities",
+  },
   async run(ctx: VetContext) {
     const declaresTools = ctx.shared.capabilities?.tools !== undefined;
     try {
@@ -81,6 +88,11 @@ export const toolSchemas: Check = {
   id: "tool-schemas",
   title: "Every tool has a valid input schema",
   category: "tools",
+  spec: {
+    level: "MUST",
+    text: "inputSchema MUST be a valid JSON Schema object (not null).",
+    url: SPEC + "/server/tools#tool",
+  },
   async run(ctx: VetContext) {
     const tools = ctx.shared.tools;
     if (!tools) return result(this, "skip", "no tool list available");
@@ -159,6 +171,11 @@ export const toolNames: Check = {
   id: "tool-names",
   title: "Tool names are unique and well-formed",
   category: "tools",
+  spec: {
+    level: "SHOULD",
+    text: "Tool names SHOULD be unique within a server, between 1 and 128 characters, using only ASCII letters, digits, underscore, hyphen, and dot.",
+    url: SPEC + "/server/tools#tool-names",
+  },
   async run(ctx: VetContext) {
     const tools = ctx.shared.tools;
     if (!tools || tools.length === 0) return result(this, "skip", "no tools to check");
@@ -193,6 +210,11 @@ export const toolDescriptions: Check = {
   id: "tool-descriptions",
   title: "Every tool has a description",
   category: "hygiene",
+  spec: {
+    level: "HEURISTIC",
+    text: "No clause requires descriptions, but the model routes on them, an undescribed tool is invisible to tool selection.",
+    url: SPEC + "/server/tools#tool",
+  },
   async run(ctx: VetContext) {
     const tools = ctx.shared.tools;
     if (!tools || tools.length === 0) return result(this, "skip", "no tools to check");
@@ -217,6 +239,11 @@ export const invalidArgs: Check = {
   id: "invalid-args",
   title: "Tools reject invalid arguments cleanly",
   category: "reliability",
+  spec: {
+    level: "MUST",
+    text: "Servers MUST validate all tool inputs.",
+    url: SPEC + "/server/tools#security-considerations",
+  },
   async run(ctx: VetContext) {
     if (!ctx.options.probe) return result(this, "skip", "probing disabled (--no-probe)");
     const tools = ctx.shared.tools;

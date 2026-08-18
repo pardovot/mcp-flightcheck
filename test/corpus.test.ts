@@ -23,6 +23,11 @@ for (const entry of CORPUS) {
         expected,
         `${entry.name}: check "${checkId}" expected ${expected}, got ${actual.severity} (${actual.message})`,
       );
+      // Every finding must carry the clause behind it (stability and latency have none).
+      if ((expected === "fail" || expected === "warn") && !["stability", "response-time"].includes(checkId)) {
+        assert.ok(actual.spec, `${entry.name}: finding "${checkId}" has no spec citation`);
+        assert.match(actual.spec.url, /^https:\/\//);
+      }
     }
   });
 }

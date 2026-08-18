@@ -33,6 +33,11 @@ export function renderText(report: VetReport): string {
       for (const detail of res.details ?? []) {
         lines.push(colors.dim(`          ${detail}`));
       }
+      // The clause behind the finding, shown only when there is a finding.
+      if (res.spec && (res.severity === "warn" || res.severity === "fail")) {
+        lines.push(colors.dim(`          ${res.spec.level}: ${res.spec.text}`));
+        lines.push(colors.dim(`          ${res.spec.url}`));
+      }
     }
     lines.push("");
   }

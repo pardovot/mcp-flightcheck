@@ -2,11 +2,18 @@ import type { Check, VetContext } from "../types.js";
 import { result } from "../types.js";
 import { classify } from "../errors.js";
 
+const SPEC = "https://modelcontextprotocol.io/specification/2025-11-25";
+
 /** serverInfo should identify the implementation. Clients log and display it. */
 export const serverInfo: Check = {
   id: "server-info",
   title: "Server identifies itself",
   category: "hygiene",
+  spec: {
+    level: "MUST",
+    text: "The server MUST respond with its own capabilities and information.",
+    url: SPEC + "/basic/lifecycle#initialization",
+  },
   async run(ctx: VetContext) {
     const info = ctx.client.getServerVersion();
     if (!info) return result(this, "warn", "no serverInfo returned during initialize");
@@ -25,6 +32,11 @@ export const capabilityHonesty: Check = {
   id: "capability-honesty",
   title: "Declared capabilities actually work",
   category: "protocol",
+  spec: {
+    level: "MUST",
+    text: "Both parties MUST only use capabilities that were successfully negotiated.",
+    url: SPEC + "/basic/lifecycle#operation",
+  },
   async run(ctx: VetContext) {
     const caps = ctx.shared.capabilities ?? {};
     const details: string[] = [];

@@ -1,7 +1,7 @@
 {
   "name": "mcp-flightcheck",
   "version": "0.1.0",
-  "description": "CI-grade conformance and reliability testing for MCP servers. Vet your server before you ship it.",
+  "description": "Tries to break your MCP server before your users do. Runtime checks with spec citations, made for CI.",
   "keywords": [
     "mcp",
     "model-context-protocol",

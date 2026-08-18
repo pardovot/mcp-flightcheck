@@ -1,6 +1,6 @@
 # mcp-flightcheck
 
-Reliability checks for MCP servers, made to run in CI. It does the normal client startup against your server, then sends the things a client normally wouldn't, a call with no tool name, an unknown method, a tool call with required arguments missing. You get a scorecard, and a non-zero exit code when something's off.
+Tries to break your MCP server before your users do. It runs the normal client startup, then sends the things a client normally wouldn't, a call with no tool name, an unknown method, a tool call with required arguments missing, and watches for crashes, hangs, and tools that run when they shouldn't. You get a scorecard where every finding cites the spec clause behind it, and a non-zero exit code for CI.
 
 I ran it against every remote server in the official registry, 6,892 of them. Of the ones that even accept a connection, a quarter fail a check and [one in seven is just broken](../mcp-reliability-study/), they crash, hang, or run a `tools/call` that names no tool. The official Inspector is interactive, nothing fails a build, so none of this gets caught before it ships.
 
@@ -92,6 +92,18 @@ Exit codes: `0` clean, `1` findings, `2` could not connect or usage error. Drop 
 - A final health check proves the server survived its own error paths.
 
 Failure taxonomy matches what breaks in the wild: schema mismatch, timeout, crash, protocol violation.
+
+## Findings cite the spec
+
+Every finding carries the clause it enforces, quoted verbatim with a link:
+
+```
+WARN  Rejects malformed request params - malformed params surfaced as -32603, expected -32602
+        MUST: -32602 Invalid params: Invalid method parameter(s). (JSON-RPC 2.0, which MCP messages MUST follow)
+        https://www.jsonrpc.org/specification#error_object
+```
+
+Rules with no clause behind them are labelled HEURISTIC, so you can always tell a spec violation from a judgment call. The two checks with no normative basis at all (post-probe health, latency) carry no citation rather than a made-up one.
 
 ## Why probing is on by default
 
