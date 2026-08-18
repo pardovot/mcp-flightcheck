@@ -4,13 +4,13 @@ import { runChecks } from "../src/runner.js";
 import { exitCode } from "../src/report.js";
 import type { VetReport, CheckResult } from "../src/types.js";
 import {
-  connectFixture,
+  connectInMemory,
   goodServer,
   sloppyServer,
-  hangingServer,
-  crashingServer,
+  hangOnCallServer,
+  crashOnCallServer,
   modernSchemaServer,
-} from "./fixtures.js";
+} from "../examples/servers.js";
 
 const FAST = { timeoutMs: 500, probe: true, probeLimit: 10 };
 
@@ -21,7 +21,7 @@ function byId(report: VetReport, id: string): CheckResult {
 }
 
 test("good server passes everything", async () => {
-  const client = await connectFixture(goodServer());
+  const client = await connectInMemory(goodServer());
   const report = await runChecks(client, "in-memory", FAST);
   await client.close();
 
@@ -38,7 +38,7 @@ test("good server passes everything", async () => {
 });
 
 test("sloppy server: schema, naming, honesty, and validation findings", async () => {
-  const client = await connectFixture(sloppyServer());
+  const client = await connectInMemory(sloppyServer());
   const report = await runChecks(client, "in-memory", FAST);
   await client.close();
 
@@ -58,7 +58,7 @@ test("sloppy server: schema, naming, honesty, and validation findings", async ()
 });
 
 test("hanging server: probe times out and is reported as a hang", async () => {
-  const client = await connectFixture(hangingServer());
+  const client = await connectInMemory(hangOnCallServer());
   const report = await runChecks(client, "in-memory", FAST);
   await client.close();
 
@@ -69,7 +69,7 @@ test("hanging server: probe times out and is reported as a hang", async () => {
 });
 
 test("crashing server: crash detected and stability fails", async () => {
-  const client = await connectFixture(crashingServer());
+  const client = await connectInMemory(crashOnCallServer());
   const report = await runChecks(client, "in-memory", FAST);
   await client.close().catch(() => {});
 
@@ -81,7 +81,7 @@ test("crashing server: crash detected and stability fails", async () => {
 });
 
 test("draft 2020-12 schemas validate instead of crashing the check", async () => {
-  const client = await connectFixture(modernSchemaServer());
+  const client = await connectInMemory(modernSchemaServer());
   const report = await runChecks(client, "in-memory", FAST);
   await client.close();
 

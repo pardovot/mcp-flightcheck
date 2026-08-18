@@ -114,7 +114,13 @@ console.log(report.summary); // { pass, warn, fail, skip }
 
 ## How it's tested
 
-Against a zoo of deliberately broken servers: one that ships no schemas, one that executes tools with missing required args, one that hangs forever, one that crashes mid-call. Every failure mode mcp-flightcheck reports is reproduced in its own test suite. See `test/fixtures.ts`.
+mcp-flightcheck is validated against a **conformance corpus**: a gallery of dummy MCP servers in `examples/`, each embodying one archetype (clean, missing schema, no input validation, crashes on call, hangs on call, lies about capabilities, no ping, undocumented tools, anonymous, hangs on unknown method). Each is pinned to the exact verdict mcp-flightcheck should return, and `test/corpus.test.ts` asserts mcp-flightcheck reproduces every one. This is mcp-flightcheck's own precision/recall gate: a regression that stops catching a defect, or starts flagging a clean server, fails the build.
+
+See the whole gallery run live against every archetype:
+
+```bash
+npm run demo
+```
 
 ## Roadmap
 

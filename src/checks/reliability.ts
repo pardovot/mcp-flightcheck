@@ -22,7 +22,9 @@ export const responseTime: Check = {
         samples.push(performance.now() - start);
       }
     } catch (err: unknown) {
-      return result(this, "fail", `latency sampling failed: ${classify(err).message}`);
+      // A sampling error is already reported by tools-list/stability as a hard failure;
+      // here it only means we could not time it, so warn rather than double-count.
+      return result(this, "warn", `could not sample latency: ${classify(err).message}`);
     }
     samples.sort((left, right) => left - right);
     const median = Math.round(samples[Math.floor(samples.length / 2)]);

@@ -94,7 +94,12 @@ export const malformedParams: Check = {
   },
 };
 
-/** Ping is a required part of the protocol: the receiver must respond promptly. */
+/**
+ * The spec says a receiver should answer a ping, but it is a liveness utility, not
+ * core function: many working servers skip it. So a missing ping is a warning, not a
+ * hard failure. A ping that hangs is different: it points at a stuck server, so that
+ * stays a failure.
+ */
 export const ping: Check = {
   id: "ping",
   title: "Responds to ping",
@@ -106,12 +111,18 @@ export const ping: Check = {
     } catch (err: unknown) {
       const classified = classify(err);
       if (classified.kind === "timeout") {
-        return result(this, "fail", "ping timed out, the spec requires a prompt response");
+        return result(this, "fail", "ping timed out, which points at a stuck server");
+      }
+      if (classified.kind === "closed") {
+        return result(this, "fail", "server dropped the connection on ping");
       }
       if (classified.kind === "clean-error") {
-        return result(this, "fail", `ping rejected with code ${classified.code}, it must be answered`);
+        return result(this, "warn", `ping not implemented (rejected with code ${classified.code})`);
       }
-      return result(this, "fail", `ping failed: ${classified.message}`);
+      if (classified.kind === "http-error") {
+        return result(this, "warn", `ping not implemented (HTTP ${classified.httpStatus})`);
+      }
+      return result(this, "warn", `ping not answered: ${classified.message}`);
     }
   },
 };

@@ -3,7 +3,7 @@
 // Prints "LISTENING <port>" to stderr once ready. Returns 401 without the token.
 import { createServer } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { goodServer } from "./fixtures.js";
+import { goodServer } from "../examples/servers.js";
 
 const port = Number(process.argv[2]);
 const token = process.argv[3];

@@ -70,7 +70,7 @@ export function makeClient(): Client {
   return new Client({ name: "mcp-flightcheck", version: "0.1.0" }, { capabilities: {} });
 }
 
-export async function connect(target: Target, timeoutMs: number): Promise<Client> {
+async function connectOnce(target: Target, timeoutMs: number): Promise<Client> {
   const client = makeClient();
   const transport = target.makeTransport();
   const deadline = new Promise<never>((_resolve, reject) => {
@@ -82,4 +82,31 @@ export async function connect(target: Target, timeoutMs: number): Promise<Client
   });
   await Promise.race([client.connect(transport), deadline]);
   return client;
+}
+
+/** A connect failure worth one retry: transient, not a settled answer like auth or 404. */
+function isTransient(err: unknown): boolean {
+  const status = (err as { code?: unknown }).code;
+  // A 5xx is transient; a 4xx (auth, not-found, method-not-allowed) is a settled answer.
+  if (typeof status === "number" && status >= 500 && status <= 599) return true;
+  let message = err instanceof Error ? err.message : String(err);
+  for (let cause = (err as { cause?: unknown }).cause; cause instanceof Error; cause = (cause as { cause?: unknown }).cause) {
+    message += ` ${(cause as { code?: string }).code ?? cause.message}`;
+  }
+  // Network-layer blips and timeouts, but not a clean refusal.
+  return /timed? ?out|ETIMEDOUT|ECONNRESET|EAI_AGAIN|UND_ERR_(CONNECT_TIMEOUT|HEADERS_TIMEOUT|SOCKET)/i.test(message);
+}
+
+/**
+ * Connect, retrying once on a transient failure so a single network blip does not
+ * read as a dead server. Settled answers (auth, 404, refused) fail immediately.
+ */
+export async function connect(target: Target, timeoutMs: number): Promise<Client> {
+  try {
+    return await connectOnce(target, timeoutMs);
+  } catch (err: unknown) {
+    if (!isTransient(err)) throw err;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return connectOnce(target, timeoutMs);
+  }
 }
