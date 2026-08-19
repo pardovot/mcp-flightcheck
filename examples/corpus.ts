@@ -19,6 +19,8 @@ import {
   undocumentedServer,
   anonymousServer,
   hangOnUnknownServer,
+  crashOnCursorServer,
+  crashOnOverlapServer,
 } from "./servers.js";
 
 export interface CorpusEntry {
@@ -41,6 +43,10 @@ export const CORPUS: CorpusEntry[] = [
       ping: "pass",
       "unknown-method": "pass",
       "invalid-args": "pass",
+      // The reference SDK itself ignores junk cursors instead of returning -32602,
+      // so even the clean fixture carries this warn. Same class as the -32603 finding.
+      "invalid-cursor": "warn",
+      "concurrent-requests": "pass",
       stability: "pass",
       "server-info": "pass",
     },
@@ -98,5 +104,17 @@ export const CORPUS: CorpusEntry[] = [
     description: "Hangs on an unknown method instead of returning -32601",
     build: hangOnUnknownServer,
     expect: { "unknown-method": "fail" },
+  },
+  {
+    name: "crash-on-cursor",
+    description: "Crashes when tools/list arrives with a pagination cursor",
+    build: crashOnCursorServer,
+    expect: { "invalid-cursor": "fail" },
+  },
+  {
+    name: "crash-on-overlap",
+    description: "Serves serial traffic fine, crashes when requests overlap",
+    build: crashOnOverlapServer,
+    expect: { "tools-list": "pass", "concurrent-requests": "fail" },
   },
 ];

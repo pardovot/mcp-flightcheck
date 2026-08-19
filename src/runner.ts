@@ -1,9 +1,9 @@
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Check, CheckResult, VetContext, VetOptions, VetReport } from "./types.js";
 import { serverInfo, capabilityHonesty } from "./checks/hygiene.js";
-import { unknownMethod, malformedParams, ping } from "./checks/protocol.js";
+import { unknownMethod, malformedParams, invalidCursor, ping } from "./checks/protocol.js";
 import { toolsList, toolSchemas, toolNames, toolDescriptions, invalidArgs } from "./checks/tools.js";
-import { responseTime, stability } from "./checks/reliability.js";
+import { responseTime, concurrentRequests, stability } from "./checks/reliability.js";
 
 // Order matters: tools-list populates shared state, invalid-args probes, stability runs last.
 export const ALL_CHECKS: Check[] = [
@@ -16,8 +16,10 @@ export const ALL_CHECKS: Check[] = [
   toolDescriptions,
   unknownMethod,
   malformedParams,
+  invalidCursor,
   responseTime,
   invalidArgs,
+  concurrentRequests,
   stability,
 ];
 

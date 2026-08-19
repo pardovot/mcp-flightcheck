@@ -205,6 +205,54 @@ export function anonymousServer(): Server {
   return server;
 }
 
+/** Crashes the connection when tools/list arrives with a pagination cursor. */
+export function crashOnCursorServer(): Server {
+  const server = new Server({ name: "crash-on-cursor", version: "1.0.0" }, { capabilities: { tools: {} } });
+  server.setRequestHandler(ListToolsRequestSchema, async (req) => {
+    if (req.params?.cursor !== undefined) {
+      setTimeout(() => void server.close(), 0);
+      return new Promise(() => {});
+    }
+    return {
+      tools: [
+        {
+          name: "echo",
+          description: "Echo",
+          inputSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
+        },
+      ],
+    };
+  });
+  server.setRequestHandler(CallToolRequestSchema, async () => ({ content: [{ type: "text", text: "ok" }] }));
+  return server;
+}
+
+/** Serves one request at a time fine, crashes when a second arrives mid-flight. */
+export function crashOnOverlapServer(): Server {
+  const server = new Server({ name: "crash-on-overlap", version: "1.0.0" }, { capabilities: { tools: {} } });
+  let inFlight = false;
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    if (inFlight) {
+      setTimeout(() => void server.close(), 0);
+      return new Promise(() => {});
+    }
+    inFlight = true;
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    inFlight = false;
+    return {
+      tools: [
+        {
+          name: "echo",
+          description: "Echo",
+          inputSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
+        },
+      ],
+    };
+  });
+  server.setRequestHandler(CallToolRequestSchema, async () => ({ content: [{ type: "text", text: "ok" }] }));
+  return server;
+}
+
 /** Hangs on any method it does not recognize, instead of returning -32601. */
 export function hangOnUnknownServer(): Server {
   const server = new Server({ name: "hang-on-unknown", version: "1.0.0" }, { capabilities: { tools: {} } });

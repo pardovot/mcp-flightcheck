@@ -78,6 +78,7 @@ Exit codes: `0` clean, `1` findings, `2` could not connect or usage error. Drop 
 **Protocol conformance**
 - Unknown methods are rejected with `-32601`, not a hang, a crash, or a fake success.
 - Malformed request params come back as a clean JSON-RPC error.
+- A junk pagination cursor gets a clean `-32602`, not a crash, a hang, or a silently ignored token.
 - `ping` is answered, as the spec requires.
 - Every capability the server declares (tools, resources, prompts) actually responds. Declaring what you cannot serve breaks clients.
 
@@ -89,6 +90,7 @@ Exit codes: `0` clean, `1` findings, `2` could not connect or usage error. Drop 
 **Reliability**
 - Invalid-argument probing: every tool with required arguments is called without them. A well-built server rejects the call before anything executes. mcp-flightcheck flags tools that execute anyway, hang until timeout, or take the whole process down.
 - Median `tools/list` latency, because agents pay it on every session.
+- Concurrent-request probing: a burst of parallel requests, because agents overlap a list refresh with a tool call as a matter of course. A server that only survives serial traffic fails in production.
 - A final health check proves the server survived its own error paths.
 
 Failure taxonomy matches what breaks in the wild: schema mismatch, timeout, crash, protocol violation.
@@ -124,7 +126,7 @@ console.log(report.summary); // { pass, warn, fail, skip }
 
 ## How it's tested
 
-mcp-flightcheck is validated against a **conformance corpus**: a gallery of dummy MCP servers in `examples/`, each embodying one archetype (clean, missing schema, no input validation, crashes on call, hangs on call, lies about capabilities, no ping, undocumented tools, anonymous, hangs on unknown method). Each is pinned to the exact verdict mcp-flightcheck should return, and `test/corpus.test.ts` asserts mcp-flightcheck reproduces every one. This is mcp-flightcheck's own precision/recall gate: a regression that stops catching a defect, or starts flagging a clean server, fails the build.
+mcp-flightcheck is validated against a **conformance corpus**: a gallery of dummy MCP servers in `examples/`, each embodying one archetype (clean, missing schema, no input validation, crashes on call, hangs on call, lies about capabilities, no ping, undocumented tools, anonymous, hangs on unknown method, crashes on a pagination cursor, crashes under overlapping requests). Each is pinned to the exact verdict mcp-flightcheck should return, and `test/corpus.test.ts` asserts mcp-flightcheck reproduces every one. This is mcp-flightcheck's own precision/recall gate: a regression that stops catching a defect, or starts flagging a clean server, fails the build.
 
 See the whole gallery run live against every archetype:
 

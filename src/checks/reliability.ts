@@ -35,6 +35,61 @@ export const responseTime: Check = {
   },
 };
 
+// Enough overlap to expose shared-state races without looking like a load test.
+const PARALLEL_REQUESTS = 4;
+
+/**
+ * An agent fires overlapping requests as a matter of course (a list refresh racing a
+ * tool call). A server that serializes fine but corrupts or dies under overlap is
+ * broken in exactly the way single-request checks never see.
+ */
+export const concurrentRequests: Check = {
+  id: "concurrent-requests",
+  title: "Survives concurrent requests",
+  category: "reliability",
+  spec: {
+    level: "HEURISTIC",
+    text: "No clause mandates concurrency, but agent clients overlap requests routinely, a server that only survives serial traffic fails in production.",
+    url: "https://www.jsonrpc.org/specification",
+  },
+  async run(ctx: VetContext) {
+    if (!ctx.shared.tools) {
+      return result(this, "skip", "tools/list unavailable, cannot probe concurrency");
+    }
+    const outcomes = await Promise.allSettled(
+      Array.from({ length: PARALLEL_REQUESTS }, () =>
+        rawListToolsPage(ctx.client, undefined, ctx.options.timeoutMs),
+      ),
+    );
+    const failures = outcomes.filter(
+      (outcome): outcome is PromiseRejectedResult => outcome.status === "rejected",
+    );
+    if (failures.length === 0) {
+      return result(
+        this,
+        "pass",
+        `${PARALLEL_REQUESTS} parallel tools/list requests all answered`,
+      );
+    }
+    const classified = failures.map((failure) => classify(failure.reason));
+    const details = classified.map((failure) => `${failure.kind}: ${failure.message}`);
+    if (classified.some((failure) => failure.kind === "closed" || failure.kind === "timeout")) {
+      return result(
+        this,
+        "fail",
+        `server crashed or hung under ${PARALLEL_REQUESTS} parallel requests (${failures.length} of ${PARALLEL_REQUESTS} failed)`,
+        details,
+      );
+    }
+    return result(
+      this,
+      "warn",
+      `${failures.length} of ${PARALLEL_REQUESTS} parallel requests rejected, a request that succeeds alone should not fail under overlap`,
+      details,
+    );
+  },
+};
+
 /**
  * Runs last. After every probe above, the server must still be alive and coherent.
  * A server that survives its own error paths is the whole point.

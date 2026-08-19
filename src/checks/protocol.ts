@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Check, VetContext } from "../types.js";
 import { result } from "../types.js";
 import { classify, ErrorCode } from "../errors.js";
+import { rawListToolsPage } from "../raw.js";
 
 const SPEC = "https://modelcontextprotocol.io/specification/2025-11-25";
 
@@ -101,6 +102,60 @@ export const malformedParams: Check = {
           return result(this, "fail", "server crashed on malformed params");
         default:
           return result(this, "fail", `unexpected failure on malformed params: ${classified.message}`);
+      }
+    }
+  },
+};
+
+/**
+ * A junk pagination cursor must produce a clean -32602, not a crash, a hang, or a
+ * silently accepted result. Cursors are opaque tokens, so a server that never
+ * paginates still receives them from well-meaning clients.
+ */
+export const invalidCursor: Check = {
+  id: "invalid-cursor",
+  title: "Rejects an invalid pagination cursor",
+  category: "protocol",
+  spec: {
+    level: "SHOULD",
+    text: "Invalid cursors SHOULD result in an error with code -32602 (Invalid params).",
+    url: SPEC + "/server/utilities/pagination#error-handling",
+  },
+  async run(ctx: VetContext) {
+    if (!ctx.shared.tools) {
+      return result(this, "skip", "tools/list unavailable, cannot probe cursor handling");
+    }
+    try {
+      await rawListToolsPage(ctx.client, "mcp-flightcheck-bogus-cursor", ctx.options.timeoutMs);
+      return result(
+        this,
+        "warn",
+        "server accepted a junk cursor and returned a result instead of -32602",
+      );
+    } catch (err: unknown) {
+      const classified = classify(err);
+      switch (classified.kind) {
+        case "clean-error":
+          if (classified.code === ErrorCode.InvalidParams) {
+            return result(this, "pass", "invalid cursor rejected with -32602 (invalid params)");
+          }
+          return result(
+            this,
+            "warn",
+            `invalid cursor rejected, but with code ${classified.code} instead of -32602`,
+          );
+        case "http-error":
+          return result(
+            this,
+            "warn",
+            `invalid cursor rejected via HTTP ${classified.httpStatus} instead of a JSON-RPC -32602 error`,
+          );
+        case "timeout":
+          return result(this, "fail", "server hung on an invalid cursor (no response before timeout)");
+        case "closed":
+          return result(this, "fail", "server crashed on an invalid cursor");
+        default:
+          return result(this, "fail", `unexpected failure on invalid cursor: ${classified.message}`);
       }
     }
   },
