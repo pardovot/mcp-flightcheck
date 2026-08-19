@@ -73,6 +73,15 @@ Exit codes: `0` clean, `1` findings, `2` could not connect or usage error. Drop 
 - run: npx mcp-flightcheck --strict node dist/server.js
 ```
 
+Or use the bundled GitHub Action:
+
+```yaml
+- uses: pardovot/mcp-flightcheck@v0
+  with:
+    server: node dist/server.js
+    strict: true
+```
+
 ## What it checks
 
 **Protocol conformance**

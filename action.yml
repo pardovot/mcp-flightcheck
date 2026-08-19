@@ -1,0 +1,34 @@
+name: mcp-flightcheck
+description: Tries to break your MCP server before your users do. Runtime MCP conformance and reliability checks with spec citations.
+branding:
+  icon: check-circle
+  color: green
+
+inputs:
+  server:
+    description: The server to check, a command line for stdio servers ("node dist/server.js") or a URL for Streamable HTTP servers.
+    required: true
+  strict:
+    description: Fail the run on warnings too, not just hard failures.
+    required: false
+    default: "false"
+  timeout:
+    description: Per-request timeout in milliseconds.
+    required: false
+    default: ""
+  flags:
+    description: Extra CLI flags passed through verbatim, e.g. --no-probe or --header "X-Api-Key: $KEY".
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Run mcp-flightcheck
+      shell: bash
+      # The server input is a command line, word-splitting is intentional.
+      run: |
+        args=()
+        if [ "${{ inputs.strict }}" = "true" ]; then args+=(--strict); fi
+        if [ -n "${{ inputs.timeout }}" ]; then args+=(--timeout "${{ inputs.timeout }}"); fi
+        npx -y mcp-flightcheck@0 "${args[@]}" ${{ inputs.flags }} ${{ inputs.server }}
