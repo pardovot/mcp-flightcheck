@@ -60,6 +60,59 @@ export function renderJson(report: VetReport): string {
   return JSON.stringify(report, null, 2);
 }
 
+const MD_ICONS: Record<CheckResult["severity"], string> = {
+  pass: "✅",
+  warn: "⚠️",
+  fail: "❌",
+  skip: "⏭️",
+};
+
+/** Escape the characters that would break out of a markdown table cell. */
+function mdCell(text: string): string {
+  return text.replace(/\|/g, "\\|").replace(/\n/g, " ");
+}
+
+/** Markdown report, made for PR comments and $GITHUB_STEP_SUMMARY. */
+export function renderMarkdown(report: VetReport): string {
+  const lines: string[] = [];
+  const server = report.serverInfo?.name
+    ? `${report.serverInfo.name} ${report.serverInfo.version ?? ""}`.trim()
+    : "unidentified server";
+  const { pass, warn, fail, skip } = report.summary;
+  const verdict = fail > 0 ? "❌ NOT READY" : warn > 0 ? "⚠️ READY, WITH WARNINGS" : "✅ READY";
+  lines.push(`## mcp-flightcheck: ${server}`);
+  lines.push("");
+  lines.push(`**${verdict}** · ${pass} pass · ${warn} warn · ${fail} fail · ${skip} skip · ${report.durationMs}ms · \`${report.target}\``);
+  lines.push("");
+  lines.push("| Result | Check | Finding |");
+  lines.push("|---|---|---|");
+  for (const category of ["protocol", "tools", "reliability", "hygiene"] as const) {
+    for (const res of report.results.filter((entry) => entry.category === category)) {
+      lines.push(`| ${MD_ICONS[res.severity]} | ${mdCell(res.title)} | ${mdCell(res.message)} |`);
+    }
+  }
+  const findings = report.results.filter(
+    (res) => (res.severity === "warn" || res.severity === "fail") && (res.spec || res.details?.length),
+  );
+  if (findings.length > 0) {
+    lines.push("");
+    lines.push("<details><summary>Findings in detail, with the spec clause behind each</summary>");
+    lines.push("");
+    for (const res of findings) {
+      lines.push(`**${res.title}**: ${res.message}`);
+      for (const detail of res.details ?? []) lines.push(`- ${detail}`);
+      if (res.spec) {
+        lines.push(`> ${res.spec.level}: ${res.spec.text}`);
+        lines.push(`> ${res.spec.url}`);
+      }
+      lines.push("");
+    }
+    lines.push("</details>");
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
 /** Exit code contract: 0 clean, 1 any fail, and with strict mode also any warn. */
 export function exitCode(report: VetReport, strict: boolean): number {
   if (report.summary.fail > 0) return 1;

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { runChecks } from "../src/runner.js";
-import { exitCode } from "../src/report.js";
+import { exitCode, renderMarkdown } from "../src/report.js";
 import type { VetReport, CheckResult } from "../src/types.js";
 import {
   connectInMemory,
@@ -99,4 +99,38 @@ test("strict mode turns warnings into a failing exit code", () => {
   };
   assert.equal(exitCode(report, false), 0);
   assert.equal(exitCode(report, true), 1);
+});
+
+test("markdown report renders verdict, table rows, and escapes pipes", () => {
+  const report: VetReport = {
+    target: "node server.js",
+    serverInfo: { name: "my-server", version: "1.0.0" },
+    startedAt: new Date().toISOString(),
+    durationMs: 42,
+    results: [
+      {
+        id: "tools-list",
+        title: "tools/list works",
+        category: "tools",
+        severity: "pass",
+        message: "listed 2 tools",
+      },
+      {
+        id: "malformed-params",
+        title: "Rejects malformed request params",
+        category: "protocol",
+        severity: "warn",
+        message: "got -32603 | expected -32602",
+        spec: { level: "MUST", text: "-32602 Invalid params", url: "https://example.test/spec" },
+      },
+    ],
+    summary: { pass: 1, warn: 1, fail: 0, skip: 0 },
+  };
+  const markdown = renderMarkdown(report);
+  assert.match(markdown, /## mcp-flightcheck: my-server 1\.0\.0/);
+  assert.match(markdown, /READY, WITH WARNINGS/);
+  assert.match(markdown, /\| ✅ \| tools\/list works \| listed 2 tools \|/);
+  // The pipe inside the message must not break the table cell.
+  assert.match(markdown, /got -32603 \\\| expected -32602/);
+  assert.match(markdown, /MUST: -32602 Invalid params/);
 });

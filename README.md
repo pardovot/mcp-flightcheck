@@ -51,6 +51,7 @@ mcp-flightcheck python -m my_mcp_server       # any command, any language
 mcp-flightcheck https://example.com/mcp       # Streamable HTTP server
 
 mcp-flightcheck --json node dist/server.js    # machine-readable report
+mcp-flightcheck --md node dist/server.js      # markdown report for PR comments
 mcp-flightcheck --strict node dist/server.js  # warnings also fail the run
 mcp-flightcheck --no-probe node server.js     # skip invalid-argument probing
 mcp-flightcheck --timeout 30000 slow-server   # per-request timeout in ms
@@ -80,6 +81,12 @@ Or use the bundled GitHub Action:
   with:
     server: node dist/server.js
     strict: true
+```
+
+For a report on the workflow's summary page, pipe the markdown output there:
+
+```yaml
+- run: npx mcp-flightcheck --md node dist/server.js >> "$GITHUB_STEP_SUMMARY"
 ```
 
 ## What it checks
@@ -147,7 +154,6 @@ npm run demo
 
 - Version negotiation checks across protocol revisions
 - Resource and prompt content validation
-- `--report md` for PR comments
 - Structured output validation for tools that declare `outputSchema`
 - Public reliability dataset: mcp-flightcheck run across the official registry
 

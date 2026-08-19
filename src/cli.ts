@@ -2,7 +2,7 @@
 import { fileURLToPath } from "node:url";
 import { parseTarget, parseHeaders, connect } from "./connect.js";
 import { runChecks, DEFAULT_OPTIONS } from "./runner.js";
-import { renderText, renderJson, exitCode } from "./report.js";
+import { renderText, renderJson, renderMarkdown, exitCode } from "./report.js";
 
 const HELP = `mcp-flightcheck - vet an MCP server before you ship it
 
@@ -12,6 +12,7 @@ Usage:
 
 Options:
   --json                 machine-readable report on stdout
+  --md                   markdown report, made for PR comments and $GITHUB_STEP_SUMMARY
   --strict               exit 1 on warnings too, not just failures
   --no-probe             skip invalid-argument probing of tools
   --timeout <ms>         per-request timeout (default 10000)
@@ -27,6 +28,7 @@ Exit codes: 0 clean, 1 findings, 2 could not connect or usage error.`;
 
 interface CliArgs {
   json: boolean;
+  markdown: boolean;
   strict: boolean;
   probe: boolean;
   timeoutMs: number;
@@ -38,6 +40,7 @@ interface CliArgs {
 export function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {
     json: false,
+    markdown: false,
     strict: false,
     probe: DEFAULT_OPTIONS.probe,
     timeoutMs: DEFAULT_OPTIONS.timeoutMs,
@@ -48,6 +51,7 @@ export function parseArgs(argv: string[]): CliArgs {
   for (; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--json") args.json = true;
+    else if (arg === "--md") args.markdown = true;
     else if (arg === "--strict") args.strict = true;
     else if (arg === "--no-probe") args.probe = false;
     else if (arg === "--timeout") {
@@ -140,6 +144,8 @@ async function main(): Promise<void> {
         summary: { pass: 0, warn: 0, fail: 1, skip: 0 },
       };
       console.log(JSON.stringify(report, null, 2));
+    } else if (args.markdown) {
+      console.log(`## mcp-flightcheck: \`${target.label}\`\n\n**❌ COULD NOT CONNECT** · ${message}`);
     } else {
       console.error(`could not connect to ${target.label}: ${message}`);
     }
@@ -152,7 +158,7 @@ async function main(): Promise<void> {
       probe: args.probe,
       probeLimit: DEFAULT_OPTIONS.probeLimit,
     });
-    console.log(args.json ? renderJson(report) : renderText(report));
+    console.log(args.json ? renderJson(report) : args.markdown ? renderMarkdown(report) : renderText(report));
     process.exitCode = exitCode(report, args.strict);
   } finally {
     await client.close().catch(() => {
