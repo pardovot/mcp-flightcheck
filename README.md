@@ -2,7 +2,7 @@
 
 Tries to break your MCP server before your users do. It runs the normal client startup, then sends the things a client normally wouldn't, a call with no tool name, an unknown method, a tool call with required arguments missing, and watches for crashes, hangs, and tools that run when they shouldn't. You get a scorecard where every finding cites the spec clause behind it, and a non-zero exit code for CI.
 
-I ran it against every remote server in the official registry, 6,892 of them. Of the ones that even accept a connection, a quarter fail a check and [one in seven is just broken](https://github.com/pardovot/mcp-reliability-study), they crash, hang, or run a `tools/call` that names no tool. The official Inspector is interactive, nothing fails a build, so none of this gets caught before it ships.
+I ran it against every remote server in the official registry, 6,892 of them. Of the ones that even accept a connection, [one in seven is just broken](https://github.com/pardovot/mcp-reliability-study), they crash, hang, or run a `tools/call` that names no tool, and 224 of them will happily agree to speak a protocol version that does not exist. The official Inspector is interactive, nothing fails a build, so none of this gets caught before it ships.
 
 ```
 $ npx mcp-flightcheck node dist/server.js
