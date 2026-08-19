@@ -21,6 +21,7 @@ import {
   hangOnUnknownServer,
   crashOnCursorServer,
   crashOnOverlapServer,
+  versionEchoServer,
 } from "./servers.js";
 
 export interface CorpusEntry {
@@ -47,6 +48,7 @@ export const CORPUS: CorpusEntry[] = [
       // so even the clean fixture carries this warn. Same class as the -32603 finding.
       "invalid-cursor": "warn",
       "concurrent-requests": "pass",
+      "version-negotiation": "pass",
       stability: "pass",
       "server-info": "pass",
     },
@@ -116,5 +118,11 @@ export const CORPUS: CorpusEntry[] = [
     description: "Serves serial traffic fine, crashes when requests overlap",
     build: crashOnOverlapServer,
     expect: { "tools-list": "pass", "concurrent-requests": "fail" },
+  },
+  {
+    name: "version-echo",
+    description: "Echoes any requested protocolVersion back as agreed, even a junk one",
+    build: versionEchoServer,
+    expect: { "version-negotiation": "fail", "tools-list": "pass" },
   },
 ];

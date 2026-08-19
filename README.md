@@ -95,6 +95,7 @@ For a report on the workflow's summary page, pipe the markdown output there:
 - Unknown methods are rejected with `-32601`, not a hang, a crash, or a fake success.
 - Malformed request params come back as a clean JSON-RPC error.
 - A junk pagination cursor gets a clean `-32602`, not a crash, a hang, or a silently ignored token.
+- Version negotiation: initialize with a protocol version no server supports, on a fresh connection. The server must counter-offer a version it does support, not echo the junk back as agreed, and not die.
 - `ping` is answered, as the spec requires.
 - Every capability the server declares (tools, resources, prompts) actually responds. Declaring what you cannot serve breaks clients.
 
@@ -142,7 +143,7 @@ console.log(report.summary); // { pass, warn, fail, skip }
 
 ## How it's tested
 
-mcp-flightcheck is validated against a **conformance corpus**: a gallery of dummy MCP servers in `examples/`, each embodying one archetype (clean, missing schema, no input validation, crashes on call, hangs on call, lies about capabilities, no ping, undocumented tools, anonymous, hangs on unknown method, crashes on a pagination cursor, crashes under overlapping requests). Each is pinned to the exact verdict mcp-flightcheck should return, and `test/corpus.test.ts` asserts mcp-flightcheck reproduces every one. This is mcp-flightcheck's own precision/recall gate: a regression that stops catching a defect, or starts flagging a clean server, fails the build.
+mcp-flightcheck is validated against a **conformance corpus**: a gallery of dummy MCP servers in `examples/`, each embodying one archetype (clean, missing schema, no input validation, crashes on call, hangs on call, lies about capabilities, no ping, undocumented tools, anonymous, hangs on unknown method, crashes on a pagination cursor, crashes under overlapping requests, echoes a junk protocol version). Each is pinned to the exact verdict mcp-flightcheck should return, and `test/corpus.test.ts` asserts mcp-flightcheck reproduces every one. This is mcp-flightcheck's own precision/recall gate: a regression that stops catching a defect, or starts flagging a clean server, fails the build.
 
 See the whole gallery run live against every archetype:
 
@@ -152,7 +153,6 @@ npm run demo
 
 ## Roadmap
 
-- Version negotiation checks across protocol revisions
 - Resource and prompt content validation
 - Structured output validation for tools that declare `outputSchema`
 - Public reliability dataset: mcp-flightcheck run across the official registry

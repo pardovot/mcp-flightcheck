@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { runChecks } from "../src/runner.js";
-import { connectInMemory } from "../examples/servers.js";
+import { connectInMemory, inMemoryTransportFactory } from "../examples/servers.js";
 import { CORPUS } from "../examples/corpus.js";
 
 const FAST = { timeoutMs: 500, probe: true, probeLimit: 10 };
@@ -12,7 +12,10 @@ const FAST = { timeoutMs: 500, probe: true, probeLimit: 10 };
 for (const entry of CORPUS) {
   test(`corpus: ${entry.name} (${entry.description})`, async () => {
     const client = await connectInMemory(entry.build());
-    const report = await runChecks(client, entry.name, FAST);
+    const report = await runChecks(client, entry.name, {
+      ...FAST,
+      makeTransport: inMemoryTransportFactory(entry.build),
+    });
     await client.close().catch(() => {});
 
     for (const [checkId, expected] of Object.entries(entry.expect)) {

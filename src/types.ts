@@ -1,4 +1,5 @@
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 
 export type Severity = "pass" | "warn" | "fail" | "skip";
 
@@ -33,6 +34,11 @@ export interface VetOptions {
   probe: boolean;
   /** Max number of tools to probe with invalid arguments. */
   probeLimit: number;
+  /**
+   * Factory for a fresh transport to the same server, used by checks that must
+   * speak below the SDK client (version negotiation). Omit to skip those checks.
+   */
+  makeTransport?: () => Transport | Promise<Transport>;
 }
 
 /** State passed between checks that run in sequence. */

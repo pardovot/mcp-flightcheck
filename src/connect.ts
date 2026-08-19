@@ -66,8 +66,11 @@ export function parseHeaders(rawHeaders: string[], bearer?: string): Record<stri
   return headers;
 }
 
+/** Sent as clientInfo on every connection, keep in sync with package.json. */
+export const CLIENT_INFO = { name: "mcp-flightcheck", version: "0.2.0" };
+
 export function makeClient(): Client {
-  return new Client({ name: "mcp-flightcheck", version: "0.1.0" }, { capabilities: {} });
+  return new Client(CLIENT_INFO, { capabilities: {} });
 }
 
 async function connectOnce(target: Target, timeoutMs: number): Promise<Client> {

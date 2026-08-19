@@ -157,6 +157,7 @@ async function main(): Promise<void> {
       timeoutMs: args.timeoutMs,
       probe: args.probe,
       probeLimit: DEFAULT_OPTIONS.probeLimit,
+      makeTransport: () => target.makeTransport(),
     });
     console.log(args.json ? renderJson(report) : args.markdown ? renderMarkdown(report) : renderText(report));
     process.exitCode = exitCode(report, args.strict);

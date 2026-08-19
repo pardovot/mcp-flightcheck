@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Check, VetContext } from "../types.js";
 import { result } from "../types.js";
 import { classify, ErrorCode } from "../errors.js";
-import { rawListToolsPage } from "../raw.js";
+import { rawListToolsPage, rawInitialize } from "../raw.js";
 
 const SPEC = "https://modelcontextprotocol.io/specification/2025-11-25";
 
@@ -103,6 +103,78 @@ export const malformedParams: Check = {
         default:
           return result(this, "fail", `unexpected failure on malformed params: ${classified.message}`);
       }
+    }
+  },
+};
+
+// A protocol version no server supports, sent to see how negotiation handles it.
+const PROBE_VERSION = "9999-12-31";
+
+/**
+ * Initialize with a protocol version the server cannot support. The server must
+ * counter-offer a version it does support. Echoing the junk version back is the
+ * dangerous outcome: the client then believes a nonexistent protocol was agreed.
+ * Runs on its own fresh connection so the main session stays clean.
+ */
+export const versionNegotiation: Check = {
+  id: "version-negotiation",
+  title: "Negotiates an unsupported protocol version",
+  category: "protocol",
+  spec: {
+    level: "MUST",
+    text: "If the server supports the requested protocol version, it MUST respond with the same version. Otherwise, the server MUST respond with another protocol version it supports.",
+    url: SPEC + "/basic/lifecycle#version-negotiation",
+  },
+  async run(ctx: VetContext) {
+    if (!ctx.options.makeTransport) {
+      return result(this, "skip", "no transport factory available, cannot open a probe connection");
+    }
+    let transport;
+    try {
+      transport = await ctx.options.makeTransport();
+    } catch (err: unknown) {
+      return result(this, "skip", `could not open a probe connection: ${classify(err).message}`);
+    }
+    try {
+      const outcome = await rawInitialize(transport, PROBE_VERSION, ctx.options.timeoutMs);
+      if (outcome.kind === "error") {
+        return result(
+          this,
+          "warn",
+          `unsupported version rejected with error ${outcome.errorCode} instead of a counter-offer (the spec's own error example blesses this, the negotiation clause does not)`,
+        );
+      }
+      if (outcome.protocolVersion === PROBE_VERSION) {
+        return result(
+          this,
+          "fail",
+          `server echoed the unsupported version ${PROBE_VERSION} back as agreed`,
+        );
+      }
+      if (typeof outcome.protocolVersion === "string" && outcome.protocolVersion.length > 0) {
+        return result(this, "pass", `counter-offered ${outcome.protocolVersion}`);
+      }
+      return result(this, "warn", "initialize result carries no protocolVersion");
+    } catch (err: unknown) {
+      const classified = classify(err);
+      if (classified.kind === "timeout") {
+        return result(this, "fail", "server hung on an unsupported protocol version");
+      }
+      if (classified.kind === "closed") {
+        return result(this, "fail", "server dropped the connection on an unsupported protocol version");
+      }
+      if (classified.kind === "http-error") {
+        return result(
+          this,
+          "warn",
+          `unsupported version rejected via HTTP ${classified.httpStatus} instead of a JSON-RPC negotiation`,
+        );
+      }
+      return result(this, "fail", `unexpected failure on version negotiation: ${classified.message}`);
+    } finally {
+      await transport.close().catch(() => {
+        // The probe connection may already be gone, which some failure modes cause.
+      });
     }
   },
 };

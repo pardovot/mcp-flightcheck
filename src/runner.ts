@@ -1,7 +1,7 @@
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Check, CheckResult, VetContext, VetOptions, VetReport } from "./types.js";
 import { serverInfo, capabilityHonesty } from "./checks/hygiene.js";
-import { unknownMethod, malformedParams, invalidCursor, ping } from "./checks/protocol.js";
+import { unknownMethod, malformedParams, invalidCursor, versionNegotiation, ping } from "./checks/protocol.js";
 import { toolsList, toolSchemas, toolNames, toolDescriptions, invalidArgs } from "./checks/tools.js";
 import { responseTime, concurrentRequests, stability } from "./checks/reliability.js";
 
@@ -17,6 +17,7 @@ export const ALL_CHECKS: Check[] = [
   unknownMethod,
   malformedParams,
   invalidCursor,
+  versionNegotiation,
   responseTime,
   invalidArgs,
   concurrentRequests,

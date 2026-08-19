@@ -6,8 +6,9 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { ListToolsRequestSchema, CallToolRequestSchema, InitializeRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { makeClient } from "../src/connect.js";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 
@@ -18,6 +19,18 @@ export async function connectInMemory(server: McpServer | Server): Promise<Clien
   const client = makeClient();
   await client.connect(clientTransport);
   return client;
+}
+
+/**
+ * Transport factory for a corpus entry: each call wires a FRESH server instance to a
+ * new in-memory pair, mirroring how a real target accepts a second connection.
+ */
+export function inMemoryTransportFactory(build: () => McpServer | Server): () => Promise<Transport> {
+  return async () => {
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await build().connect(serverTransport);
+    return clientTransport;
+  };
 }
 
 /** Everything right: typed schemas, descriptions, validation, ping, serverInfo. */
@@ -192,6 +205,27 @@ export function undocumentedServer(): Server {
 /** Reports no name or version in serverInfo. */
 export function anonymousServer(): Server {
   const server = new Server({ name: "", version: "" }, { capabilities: { tools: {} } });
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: [
+      {
+        name: "echo",
+        description: "Echo",
+        inputSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
+      },
+    ],
+  }));
+  server.setRequestHandler(CallToolRequestSchema, async () => ({ content: [{ type: "text", text: "ok" }] }));
+  return server;
+}
+
+/** Echoes whatever protocolVersion the client asked for, even one that does not exist. */
+export function versionEchoServer(): Server {
+  const server = new Server({ name: "version-echo", version: "1.0.0" }, { capabilities: { tools: {} } });
+  server.setRequestHandler(InitializeRequestSchema, async (req) => ({
+    protocolVersion: req.params.protocolVersion,
+    capabilities: { tools: {} },
+    serverInfo: { name: "version-echo", version: "1.0.0" },
+  }));
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: [
       {
