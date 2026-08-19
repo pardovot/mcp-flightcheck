@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { classify } from "../src/errors.js";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
+import { StreamableHTTPError } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 test("JSON-RPC errors are clean-error with their code", () => {
   const classified = classify(new McpError(ErrorCode.InvalidParams, "bad"));
@@ -17,6 +18,14 @@ test("request timeout classifies as timeout", () => {
 test("connection closed classifies as closed", () => {
   const classified = classify(new McpError(ErrorCode.ConnectionClosed, "gone"));
   assert.equal(classified.kind, "closed");
+});
+
+test("the real SDK StreamableHTTPError becomes http-error (its .name is just Error)", () => {
+  // The SDK class never sets .name, so this exact case is what the shape-only
+  // matcher missed: hundreds of sweep servers were miscounted as hard failures.
+  const classified = classify(new StreamableHTTPError(405, "Error POSTing to endpoint: nope"));
+  assert.equal(classified.kind, "http-error");
+  assert.equal(classified.httpStatus, 405);
 });
 
 test("a StreamableHTTPError-shaped error becomes http-error with its status", () => {

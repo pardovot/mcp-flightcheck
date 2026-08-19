@@ -1,4 +1,5 @@
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
+import { StreamableHTTPError } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 export type FailureKind =
   | "clean-error" // server returned a proper JSON-RPC error
@@ -29,10 +30,15 @@ export function classify(err: unknown): ClassifiedError {
   // StreamableHTTPError carries the HTTP status in .code. A non-2xx response to a
   // JSON-RPC message means the server rejected it at the HTTP layer instead of
   // returning a JSON-RPC error object, which is a distinct, softer failure than a crash.
+  // The class does not set .name, so match instanceof and the message prefix as well:
+  // the name check alone silently matched nothing (found via the registry sweep, where
+  // hundreds of HTTP-layer rejections were miscounted as hard failures).
   const httpCode = (err as { code?: unknown }).code;
   if (
     err instanceof Error &&
-    err.name === "StreamableHTTPError" &&
+    (err instanceof StreamableHTTPError ||
+      err.name === "StreamableHTTPError" ||
+      err.message.startsWith("Streamable HTTP error: ")) &&
     typeof httpCode === "number" &&
     httpCode >= 100 &&
     httpCode <= 599
